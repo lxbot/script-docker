@@ -164,8 +164,8 @@ func run(msg M, img string, script string) {
 					// FIXME: copy error
 					nextMsg, _ := deepCopy(msg)
 					nextMsg["mode"] = "reply"
-					msg["message"].(M)["text"] = text
-					*ch <- msg
+					nextMsg["message"].(M)["text"] = text
+					*ch <- nextMsg
 				}
 				break
 			case <-waitCh:
@@ -178,8 +178,8 @@ func run(msg M, img string, script string) {
 				// FIXME: copy error
 				nextMsg, _ := deepCopy(msg)
 				nextMsg["mode"] = "reply"
-				msg["message"].(M)["text"] = text
-				*ch <- msg
+				nextMsg["message"].(M)["text"] = text
+				*ch <- nextMsg
 				break
 			case <-time.After(3 * time.Minute):
 				if !cmd.ProcessState.Exited() {
@@ -213,6 +213,6 @@ func run(msg M, img string, script string) {
 		return
 	}
 	nextMsg["mode"] = "reply"
-	msg["message"].(M)["text"] = text
-	*ch <- msg
+	nextMsg["message"].(M)["text"] = text
+	*ch <- nextMsg
 }
