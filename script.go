@@ -55,18 +55,10 @@ func OnMessage() []func(M) M {
 	}
 }
 
-func prefix() string {
-	p := os.Getenv("LXBOT_COMMAND_PREFIX")
-	if p == "" {
-		p = "/"
-	}
-	return p
-}
-
 func shouldHandle(text string) (string, bool) {
 	result := false
 	img := ""
-	p := prefix()
+	p := os.Getenv("LXBOT_COMMAND_PREFIX")
 	for k, v := range images {
 		s := p + k
 		if strings.HasPrefix(text, s) {
