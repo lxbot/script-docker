@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"github.com/lxbot/script-docker/buff"
+	"github.com/mohemohe/temple"
 	"log"
 	"os"
 	"os/exec"
@@ -35,6 +36,20 @@ func Boot(s *plugin.Plugin, c *chan M) {
 
 	gob.Register(M{})
 	gob.Register([]interface{}{})
+}
+
+func Help() string {
+	t := `{{.p}}bash: run command in "archlinux/base:latest"
+{{.p}}node: run script in "node:lts-alpine"
+{{.p}}php: run script in "php:alpine"
+{{.p}}python: run script in "python:alpine"
+{{.p}}ruby: run script in "ruby:alpine"
+`
+	m := M{
+		"p": os.Getenv("LXBOT_COMMAND_PREFIX"),
+	}
+	r, _ := temple.Execute(t, m)
+	return r
 }
 
 func OnMessage() []func(M) M {
