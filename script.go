@@ -104,10 +104,17 @@ func deepCopy(msg M) (M, error) {
 }
 
 func generateText(stdout []string, stderr []string, tag string) string {
-	stdoutText := strings.Join(stdout, "\n")
-	stderrText := strings.Join(stderr, "\n")
-
-	return "STDOUT " + tag + "\n\n" + "```\n" + stdoutText + "\n```\n\nSTDERR " + tag + "\n\n" + "```\n" + stderrText + "\n```"
+	result := ""
+	if len(stdout) > 0 {
+		result += "STDOUT " + tag + "\n\n" + "```\n" + strings.Join(stdout, "\n") + "\n```"
+	}
+	if len(stderr) > 0 {
+		if result != "" {
+			result += "\n\n"
+		}
+		result += "STDERR " + tag + "\n\n" + "```\n" + strings.Join(stderr, "\n") + "\n```"
+	}
+	return result
 }
 
 func run(msg M, img string, script string) {
@@ -139,7 +146,7 @@ func run(msg M, img string, script string) {
 	stdoutBuff := buff.NewBuff()
 	stderrBuff := buff.NewBuff()
 	buffCh := make(chan int)
-	timeout := false
+	cmdCh := make(chan error)
 
 	wg := &sync.WaitGroup{}
 	go func() {
@@ -165,10 +172,24 @@ func run(msg M, img string, script string) {
 		wg.Done()
 	}()
 	go func() {
+		cmdCh <- cmd.Wait()
+	}()
+	go func() {
 		waitCh := time.After(3 * time.Second)
 
 		for {
 			select {
+			case _ = <- cmdCh:
+				stdoutLines := stdoutBuff.DequeueALL()
+				stderrLines := stderrBuff.DequeueALL()
+				text := generateText(stdoutLines, stderrLines, "(FINISH)")
+
+				// FIXME: copy error
+				nextMsg, _ := deepCopy(msg)
+				nextMsg["mode"] = "reply"
+				nextMsg["message"].(M)["text"] = text
+				*ch <- nextMsg
+				return
 			case _, ok := <-buffCh:
 				if !ok {
 					return
@@ -193,6 +214,9 @@ func run(msg M, img string, script string) {
 				stdoutLines := stdoutBuff.DequeueALL()
 				stderrLines := stderrBuff.DequeueALL()
 				text := generateText(stdoutLines, stderrLines, "(PARTIAL)")
+				if text == "" {
+					break
+				}
 
 				// FIXME: copy error
 				nextMsg, _ := deepCopy(msg)
@@ -204,7 +228,15 @@ func run(msg M, img string, script string) {
 				if !cmd.ProcessState.Exited() {
 					_ = cmd.Process.Kill()
 				}
-				timeout = true
+				stdoutLines := stdoutBuff.DequeueALL()
+				stderrLines := stderrBuff.DequeueALL()
+				text := generateText(stdoutLines, stderrLines, "(TIMEOUT)")
+
+				// FIXME: copy error
+				nextMsg, _ := deepCopy(msg)
+				nextMsg["mode"] = "reply"
+				nextMsg["message"].(M)["text"] = text
+				*ch <- nextMsg
 				return
 			}
 		}
@@ -214,24 +246,6 @@ func run(msg M, img string, script string) {
 	_ = stdin.Close()
 
 	wg.Wait()
-	cmd.Wait()
 	close(buffCh)
-
-	tag := "(FINISH)"
-	if timeout {
-		tag = "(TIMEOUT)"
-	}
-	stdoutLines := stdoutBuff.DequeueALL()
-	stderrLines := stderrBuff.DequeueALL()
-	text := generateText(stdoutLines, stderrLines, tag)
-
-	// FIXME: copy error
-	nextMsg, err := deepCopy(msg)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	nextMsg["mode"] = "reply"
-	nextMsg["message"].(M)["text"] = text
-	*ch <- nextMsg
+	close(cmdCh)
 }
