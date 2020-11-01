@@ -115,6 +115,7 @@ func generateText(stdout []string, stderr []string, tag string) string {
 		}
 		result += "STDERR " + tag + "\n\n" + "```\n" + strings.Join(stderr, "\n") + "\n```"
 	}
+	result = strings.ReplaceAll(result, "@", "＠")
 	return result
 }
 
