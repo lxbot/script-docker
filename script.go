@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"plugin"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -118,6 +119,15 @@ func generateText(stdout []string, stderr []string, tag string) string {
 }
 
 func run(msg M, img string, script string) {
+	if !hasDockerImage(img) {
+		nextMsg, _ := deepCopy(msg)
+		nextMsg["mode"] = "reply"
+		nextMsg["message"].(M)["text"] = "(DOWNLOAD " + img + " )"
+		*ch <- nextMsg
+
+		_ = pullDockerImage(img)
+	}
+
 	args := []string{"run", "--rm", "-i", "--log-driver", "none"}
 	network := os.Getenv("LXBOT_ALLOW_DOCKER_NETWORK")
 	if network != "true" {
@@ -135,6 +145,18 @@ func run(msg M, img string, script string) {
 		args = append(args, "--memory", "128mb")
 	}
 	args = append(args, img)
+
+	duration := 10 * time.Minute
+	sec := os.Getenv("LXBOT_ALLOW_DOCKER_EXEC_DURATION_SEC")
+	if sec != "" {
+		s, err := strconv.Atoi(sec)
+		if err == nil {
+			log.Println("[docker]", "resource limit:", "exec duration="+sec+"sec")
+			duration = time.Duration(s) * time.Second
+		}
+	} else {
+		log.Println("[docker]", "resource limit:", "exec duration=10min")
+	}
 
 	cmd := exec.Command("docker", args...)
 	stdin, _ := cmd.StdinPipe()
@@ -231,7 +253,7 @@ func run(msg M, img string, script string) {
 				nextMsg["message"].(M)["text"] = text
 				*ch <- nextMsg
 				break
-			case <-time.After(3 * time.Minute):
+			case <-time.After(duration):
 				if !cmd.ProcessState.Exited() {
 					_ = cmd.Process.Kill()
 				}
@@ -259,4 +281,17 @@ func run(msg M, img string, script string) {
 	close(buffCh)
 	close(cmdCh)
 	close(endCh)
+}
+
+func hasDockerImage(repo string) bool {
+	out, err := exec.Command("docker","images", repo, "-q").Output()
+	if err != nil {
+		return false
+	}
+	return string(out) != ""
+}
+
+
+func pullDockerImage(repo string) error {
+	return exec.Command("docker","pull", repo).Run()
 }
