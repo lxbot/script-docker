@@ -85,6 +85,7 @@ func shouldHandle(text string) (string, bool) {
 }
 
 func extractScript(text string) string {
+	log.Println("text:", text)
 	return strings.Join(strings.Split(text, "\n")[1:], "\n")
 }
 
@@ -113,14 +114,17 @@ func run(msg M, img string, script string) {
 	args := []string{"run", "--rm", "-i", "--log-driver", "none"}
 	network := os.Getenv("LXBOT_ALLOW_DOCKER_NETWORK")
 	if network != "true" {
+		log.Println("[docker]", "resource limit:", "network=none")
 		args = append(args, "--network", "none")
 	}
 	cpu := os.Getenv("LXBOT_ALLOW_DOCKER_UNLIMIT_CPU")
 	if cpu != "true" {
-		args = append(args, "--cpus=", "0.1")
+		log.Println("[docker]", "resource limit:", "cpus=0.1")
+		args = append(args, "--cpus", "0.1")
 	}
 	memory := os.Getenv("LXBOT_ALLOW_DOCKER_UNLIMIT_MEMORY")
 	if memory != "true" {
+		log.Println("[docker]", "resource limit:", "memory=128mb")
 		args = append(args, "--memory", "128mb")
 	}
 	args = append(args, img)
