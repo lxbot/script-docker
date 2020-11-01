@@ -147,6 +147,7 @@ func run(msg M, img string, script string) {
 	stderrBuff := buff.NewBuff()
 	buffCh := make(chan int)
 	cmdCh := make(chan error)
+	endCh := make(chan int)
 
 	wg := &sync.WaitGroup{}
 	go func() {
@@ -189,6 +190,8 @@ func run(msg M, img string, script string) {
 				nextMsg["mode"] = "reply"
 				nextMsg["message"].(M)["text"] = text
 				*ch <- nextMsg
+
+				endCh <- 1
 				return
 			case _, ok := <-buffCh:
 				if !ok {
@@ -237,6 +240,8 @@ func run(msg M, img string, script string) {
 				nextMsg["mode"] = "reply"
 				nextMsg["message"].(M)["text"] = text
 				*ch <- nextMsg
+
+				endCh <- 1
 				return
 			}
 		}
@@ -246,6 +251,8 @@ func run(msg M, img string, script string) {
 	_ = stdin.Close()
 
 	wg.Wait()
+	<- endCh
 	close(buffCh)
 	close(cmdCh)
+	close(endCh)
 }
