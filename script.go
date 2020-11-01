@@ -115,6 +115,14 @@ func run(msg M, img string, script string) {
 	if network != "true" {
 		args = append(args, "--network", "none")
 	}
+	cpu := os.Getenv("LXBOT_ALLOW_DOCKER_UNLIMIT_CPU")
+	if cpu != "true" {
+		args = append(args, "--cpus=", "0.1")
+	}
+	memory := os.Getenv("LXBOT_ALLOW_DOCKER_UNLIMIT_MEMORY")
+	if memory != "true" {
+		args = append(args, "--memory", "128mb")
+	}
 	args = append(args, img)
 
 	cmd := exec.Command("docker", args...)
