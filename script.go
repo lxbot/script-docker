@@ -180,10 +180,14 @@ func run(msg M, img string, script string) {
 
 		for {
 			select {
-			case _ = <- cmdCh:
+			case <- cmdCh:
 				stdoutLines := stdoutBuff.DequeueALL()
 				stderrLines := stderrBuff.DequeueALL()
-				text := generateText(stdoutLines, stderrLines, "(FINISH)")
+				tag := "(FINISH)"
+				text := generateText(stdoutLines, stderrLines, tag)
+				if text == "" {
+					text = tag
+				}
 
 				// FIXME: copy error
 				nextMsg, _ := deepCopy(msg)
@@ -212,7 +216,7 @@ func run(msg M, img string, script string) {
 				}
 				break
 			case <-waitCh:
-				waitCh = time.After(3 * time.Second)
+				waitCh = time.After(5 * time.Second)
 
 				stdoutLines := stdoutBuff.DequeueALL()
 				stderrLines := stderrBuff.DequeueALL()
